@@ -11,6 +11,14 @@ Use this template structure when generating the code review HTML file.
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Code Review</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "shiki": "https://esm.sh/shiki@1",
+      "@pierre/diffs": "https://esm.sh/@pierre/diffs@1"
+    }
+  }
+  </script>
   <style>
     * {
       box-sizing: border-box;
@@ -20,8 +28,8 @@ Use this template structure when generating the code review HTML file.
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       margin: 0;
       padding: 24px;
-      background: #0d1117;
-      color: #e6edf3;
+      background: #070707;
+      color: #fbfbfb;
       line-height: 1.5;
     }
 
@@ -36,7 +44,7 @@ Use this template structure when generating the code review HTML file.
       align-items: center;
       margin-bottom: 24px;
       padding-bottom: 16px;
-      border-bottom: 1px solid #30363d;
+      border-bottom: 1px solid #424245;
     }
 
     .review-header h1 {
@@ -46,14 +54,23 @@ Use this template structure when generating the code review HTML file.
     }
 
     .review-meta {
-      color: #8b949e;
+      color: #84848A;
       font-size: 14px;
+    }
+
+    .review-meta a {
+      color: #009fff;
+      text-decoration: none;
+    }
+
+    .review-meta a:hover {
+      text-decoration: underline;
     }
 
     .stats {
       display: flex;
       gap: 16px;
-      color: #8b949e;
+      color: #84848A;
       font-size: 14px;
     }
 
@@ -64,83 +81,84 @@ Use this template structure when generating the code review HTML file.
     }
 
     .stat-value {
-      color: #e6edf3;
+      color: #fbfbfb;
       font-weight: 600;
     }
 
-    .file-section {
-      margin-bottom: 32px;
-      border: 1px solid #30363d;
-      border-radius: 6px;
+    .diff-wrapper {
+      margin-bottom: 24px;
+      border: 1px solid #424245;
+      border-radius: 8px;
       overflow: hidden;
     }
 
-    .file-header {
-      background: #161b22;
-      padding: 12px 16px;
-      border-bottom: 1px solid #30363d;
-      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
-      font-size: 13px;
-      color: #e6edf3;
-    }
-
-    .file-path {
-      font-weight: 600;
-    }
-
-    .diff-container {
-      background: #0d1117;
-    }
-
-    /* Annotation comment styling */
+    /* Annotation comment styling - GitHub-style review comments */
     .review-comment {
-      background: #1c2128;
-      border-left: 3px solid #8b5cf6;
+      background: #141415;
+      border: 1px solid #424245;
+      border-radius: 8px;
       padding: 12px 16px;
-      margin: 0;
+      margin: 12px 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     .comment-header {
       display: flex;
       align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .comment-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #009fff 0%, #9d6afb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      color: #070707;
+      flex-shrink: 0;
+    }
+
+    .comment-meta {
+      display: flex;
+      align-items: baseline;
       gap: 8px;
-      margin-bottom: 6px;
     }
 
     .comment-author {
       font-weight: 600;
-      color: #8b5cf6;
-      font-size: 13px;
+      color: #fbfbfb;
+      font-size: 14px;
     }
 
-    .comment-badge {
-      background: #8b5cf620;
-      color: #8b5cf6;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 500;
+    .comment-time {
+      color: #84848A;
+      font-size: 12px;
     }
 
     .comment-message {
-      color: #e6edf3;
+      color: #adadb1;
       font-size: 14px;
       margin: 0;
+      line-height: 1.5;
     }
 
     .loading {
       text-align: center;
       padding: 48px;
-      color: #8b949e;
+      color: #84848A;
     }
 
     .error {
-      background: #f8514920;
-      border: 1px solid #f85149;
+      background: #ff2e3f20;
+      border: 1px solid #ff2e3f;
       border-radius: 6px;
       padding: 16px;
-      color: #f85149;
+      color: #ff2e3f;
       margin: 16px 0;
     }
 
@@ -184,8 +202,10 @@ Use this template structure when generating the code review HTML file.
     // ============================================================
     const reviewData = {
       generatedAt: "TIMESTAMP",
-      source: "SOURCE_TYPE", // "branch" or "uncommitted"
+      source: "SOURCE_TYPE", // "branch", "uncommitted", or "commit"
       baseBranch: "BRANCH_NAME",
+      repository: null,  // "user/repo-name" or null if not available
+      prUrl: null,       // "https://github.com/user/repo/pull/123" or null
       files: [
         // Each file object:
         // {
@@ -206,7 +226,7 @@ Use this template structure when generating the code review HTML file.
     };
     // ============================================================
 
-    // Render annotation comments
+    // Render annotation comments - GitHub-style
     function renderAnnotation(annotation) {
       const wrapper = document.createElement('div');
       wrapper.className = 'review-comment';
@@ -214,16 +234,29 @@ Use this template structure when generating the code review HTML file.
       const header = document.createElement('div');
       header.className = 'comment-header';
 
+      // Avatar with initial
+      const avatar = document.createElement('div');
+      avatar.className = 'comment-avatar';
+      const authorName = annotation.metadata?.author || 'Claude';
+      avatar.textContent = authorName.charAt(0).toUpperCase();
+
+      // Meta info (author + time)
+      const meta = document.createElement('div');
+      meta.className = 'comment-meta';
+
       const author = document.createElement('span');
       author.className = 'comment-author';
-      author.textContent = annotation.metadata?.author || 'Claude';
+      author.textContent = authorName;
 
-      const badge = document.createElement('span');
-      badge.className = 'comment-badge';
-      badge.textContent = 'Review';
+      const time = document.createElement('span');
+      time.className = 'comment-time';
+      time.textContent = 'now';
 
-      header.appendChild(author);
-      header.appendChild(badge);
+      meta.appendChild(author);
+      meta.appendChild(time);
+
+      header.appendChild(avatar);
+      header.appendChild(meta);
 
       const message = document.createElement('p');
       message.className = 'comment-message';
@@ -240,43 +273,42 @@ Use this template structure when generating the code review HTML file.
       const content = document.getElementById('review-content');
 
       try {
-        // Dynamic import from CDN
-        const { FileDiff, parsePatchFiles } = await import(
-          'https://cdn.jsdelivr.net/npm/@pierre/diffs@1/dist/index.js'
-        );
+        // Dynamic import using import map
+        const { FileDiff, parsePatchFiles } = await import('@pierre/diffs');
 
         content.innerHTML = '';
 
         // Update header info
-        document.getElementById('source-info').textContent =
-          reviewData.source === 'branch'
-            ? `Branch diff from ${reviewData.baseBranch}`
-            : 'Uncommitted changes';
+        const sourceInfo = document.getElementById('source-info');
+        let sourceText = reviewData.source === 'branch'
+          ? `Branch diff from ${reviewData.baseBranch}`
+          : reviewData.source === 'commit'
+          ? `Commit ${reviewData.baseBranch}`
+          : 'Uncommitted changes';
+
+        if (reviewData.repository) {
+          sourceText = `${reviewData.repository} · ${sourceText}`;
+        }
+
+        if (reviewData.prUrl) {
+          sourceInfo.innerHTML = `${sourceText} · <a href="${reviewData.prUrl}" target="_blank">View PR</a>`;
+        } else {
+          sourceInfo.textContent = sourceText;
+        }
 
         let totalComments = 0;
 
         // Render each file
         for (const file of reviewData.files) {
-          const fileSection = document.createElement('div');
-          fileSection.className = 'file-section';
-
-          // File header
-          const fileHeader = document.createElement('div');
-          fileHeader.className = 'file-header';
-          fileHeader.innerHTML = `<span class="file-path">${file.path}</span>`;
-          fileSection.appendChild(fileHeader);
-
-          // Diff container
-          const diffContainer = document.createElement('div');
-          diffContainer.className = 'diff-container';
-          fileSection.appendChild(diffContainer);
-
-          content.appendChild(fileSection);
+          // Create wrapper for spacing between files
+          const diffWrapper = document.createElement('div');
+          diffWrapper.className = 'diff-wrapper';
+          content.appendChild(diffWrapper);
 
           // Parse and render diff
           const parsed = parsePatchFiles(file.patch);
           if (!parsed || parsed.length === 0 || !parsed[0].files || parsed[0].files.length === 0) {
-            diffContainer.innerHTML = '<div class="error">Failed to parse diff</div>';
+            diffWrapper.innerHTML = `<div class="error">Failed to parse diff for ${file.path}</div>`;
             continue;
           }
 
@@ -293,7 +325,7 @@ Use this template structure when generating the code review HTML file.
 
           await renderer.render({
             fileDiff: fileDiff,
-            containerWrapper: diffContainer,
+            containerWrapper: diffWrapper,
             lineAnnotations: file.annotations || []
           });
 
@@ -328,8 +360,10 @@ Replace the `reviewData` object with actual data:
 ```javascript
 const reviewData = {
   generatedAt: new Date().toISOString(),
-  source: "branch",           // or "uncommitted"
-  baseBranch: "main",         // the base branch name
+  source: "branch",           // "branch", "uncommitted", or "commit"
+  baseBranch: "main",         // the base branch name or commit SHA
+  repository: "user/repo",    // optional: extracted from git remote
+  prUrl: "https://...",       // optional: from `gh pr view`
   files: [
     {
       path: "src/file.ts",
@@ -338,6 +372,15 @@ const reviewData = {
     }
   ]
 };
+```
+
+To get repository and PR info:
+```bash
+# Extract repo from remote URL
+git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/'
+
+# Get PR URL (requires GitHub CLI)
+gh pr view --json url --jq '.url' 2>/dev/null
 ```
 
 ### 2. Annotations Array
@@ -360,9 +403,24 @@ Available themes for `themeType`:
 - `diffStyle: 'split'` - Side-by-side view (default)
 - `diffStyle: 'unified'` - Stacked/unified view
 
+## Color Palette (pierre-dark theme)
+
+| Element | Color |
+|---------|-------|
+| Background | `#070707` |
+| Text | `#fbfbfb` |
+| Secondary text | `#84848A` |
+| Muted text | `#adadb1` |
+| Borders | `#424245` |
+| Card background | `#141415` |
+| Accent blue | `#009fff` |
+| Accent purple | `#9d6afb` |
+| Error red | `#ff2e3f` |
+| Addition green | `#00cab1` |
+
 ## Notes
 
-- The template uses ES modules with dynamic import from CDN
+- The template uses ES modules with import map for shiki and @pierre/diffs via esm.sh
 - No build step required - just save and open in browser
-- Styling matches GitHub/diffs.com dark theme aesthetic
-- Review comments have a purple accent (`#8b5cf6`) for visibility
+- Styling matches diffs.com dark theme aesthetic
+- Review comments have avatar with gradient, author name, and timestamp

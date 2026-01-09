@@ -18,7 +18,7 @@ Ask the user or infer from context which changes to review:
 
 ### Step 2: Gather Diff Data
 
-Run git commands to get the diff:
+Run git commands to get the diff and repository info:
 
 ```bash
 # Detect default branch
@@ -32,7 +32,18 @@ git diff HEAD
 
 # List changed files
 git diff --name-only "${DEFAULT_BRANCH}...HEAD"  # or HEAD for uncommitted
+
+# Get repository info (if available)
+git remote get-url origin 2>/dev/null  # e.g., git@github.com:user/repo.git
+
+# Get current branch name
+git branch --show-current
+
+# Check for PR URL (GitHub CLI)
+gh pr view --json url --jq '.url' 2>/dev/null
 ```
+
+Extract repository name from the remote URL and include PR link if available.
 
 ### Step 3: Analyze Code and Generate Comments
 
@@ -116,8 +127,10 @@ The `reviewData` object embedded in HTML:
 ```javascript
 const reviewData = {
   generatedAt: "2024-01-08T12:00:00Z",
-  source: "branch", // or "uncommitted"
+  source: "branch", // or "uncommitted" or "commit"
   baseBranch: "main",
+  repository: "user/repo-name",  // optional, extracted from git remote
+  prUrl: "https://github.com/user/repo/pull/123",  // optional, from gh pr view
   files: [
     {
       path: "src/utils/auth.ts",
