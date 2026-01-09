@@ -1,0 +1,13 @@
+# Generated review files
+code-review.html
+
+# Claude Code local settings
+.claude/
+
+# OS files
+.DS_Store
+
+# Editor files
+*.swp
+*.swo
+*~
