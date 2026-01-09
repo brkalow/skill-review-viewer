@@ -43,7 +43,10 @@ git branch --show-current
 gh pr view --json url --jq '.url' 2>/dev/null
 ```
 
-Extract repository name from the remote URL and include PR link if available.
+**Repository info extraction:**
+- Extract `repository` name from remote URL (e.g., `user/repo` from `git@github.com:user/repo.git`)
+- Build `repositoryUrl` for linking: `https://github.com/{repository}`
+- Include PR link if available from `gh pr view`
 
 ### Step 3: Analyze Code and Generate Comments
 
@@ -76,11 +79,18 @@ Key points:
 - Include annotations array for each file
 - Use dark theme (`pierre-dark`) to match diffs.com aesthetic
 
-### Step 5: Write and Report
+### Step 5: Write, Open, and Report
 
-1. Write the HTML to `./code-review.html` (or user-specified path)
-2. Report the file location and summary (X files, Y comments)
-3. Suggest opening with: `open ./code-review.html`
+1. Write the HTML to a temp directory to avoid impacting git status:
+   ```bash
+   /tmp/code-review-{timestamp}.html
+   # Example: /tmp/code-review-1704700800.html
+   ```
+2. Open the file automatically:
+   ```bash
+   open /tmp/code-review-{timestamp}.html
+   ```
+3. Report the file location and summary (X files, Y comments)
 
 ## Review Comment Guidelines
 
@@ -130,6 +140,7 @@ const reviewData = {
   source: "branch", // or "uncommitted" or "commit"
   baseBranch: "main",
   repository: "user/repo-name",  // optional, extracted from git remote
+  repositoryUrl: "https://github.com/user/repo-name",  // optional, for linking
   prUrl: "https://github.com/user/repo/pull/123",  // optional, from gh pr view
   files: [
     {

@@ -204,8 +204,9 @@ Use this template structure when generating the code review HTML file.
       generatedAt: "TIMESTAMP",
       source: "SOURCE_TYPE", // "branch", "uncommitted", or "commit"
       baseBranch: "BRANCH_NAME",
-      repository: null,  // "user/repo-name" or null if not available
-      prUrl: null,       // "https://github.com/user/repo/pull/123" or null
+      repository: null,      // "user/repo-name" or null if not available
+      repositoryUrl: null,   // "https://github.com/user/repo-name" or null
+      prUrl: null,           // "https://github.com/user/repo/pull/123" or null
       files: [
         // Each file object:
         // {
@@ -286,15 +287,23 @@ Use this template structure when generating the code review HTML file.
           ? `Commit ${reviewData.baseBranch}`
           : 'Uncommitted changes';
 
-        if (reviewData.repository) {
-          sourceText = `${reviewData.repository} · ${sourceText}`;
+        let headerParts = [];
+
+        // Add repository link if available
+        if (reviewData.repository && reviewData.repositoryUrl) {
+          headerParts.push(`<a href="${reviewData.repositoryUrl}" target="_blank">${reviewData.repository}</a>`);
+        } else if (reviewData.repository) {
+          headerParts.push(reviewData.repository);
         }
 
+        headerParts.push(sourceText);
+
+        // Add PR link if available
         if (reviewData.prUrl) {
-          sourceInfo.innerHTML = `${sourceText} · <a href="${reviewData.prUrl}" target="_blank">View PR</a>`;
-        } else {
-          sourceInfo.textContent = sourceText;
+          headerParts.push(`<a href="${reviewData.prUrl}" target="_blank">View PR</a>`);
         }
+
+        sourceInfo.innerHTML = headerParts.join(' · ');
 
         let totalComments = 0;
 
@@ -363,6 +372,7 @@ const reviewData = {
   source: "branch",           // "branch", "uncommitted", or "commit"
   baseBranch: "main",         // the base branch name or commit SHA
   repository: "user/repo",    // optional: extracted from git remote
+  repositoryUrl: "https://github.com/user/repo",  // optional: for header link
   prUrl: "https://...",       // optional: from `gh pr view`
   files: [
     {
@@ -377,7 +387,10 @@ const reviewData = {
 To get repository and PR info:
 ```bash
 # Extract repo from remote URL
-git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/'
+REPO=$(git remote get-url origin 2>/dev/null | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+
+# Build repository URL
+REPO_URL="https://github.com/${REPO}"
 
 # Get PR URL (requires GitHub CLI)
 gh pr view --json url --jq '.url' 2>/dev/null
