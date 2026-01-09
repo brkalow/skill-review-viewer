@@ -17,17 +17,17 @@ Copy the skill to your Claude Code skills directory:
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/diff-viewer.git
+git clone https://github.com/brkalow/skill-review-viewer.git
 
 # Copy to skills directory
 mkdir -p ~/.claude/skills/review
-cp -r diff-viewer/SKILL.md diff-viewer/references ~/.claude/skills/review/
+cp -r skill-review-viewer/SKILL.md skill-review-viewer/references ~/.claude/skills/review/
 ```
 
 Or create a symlink:
 
 ```bash
-ln -s /path/to/diff-viewer ~/.claude/skills/review
+ln -s /path/to/skill-review-viewer ~/.claude/skills/review
 ```
 
 ## Usage
