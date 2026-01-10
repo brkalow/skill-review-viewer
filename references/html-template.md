@@ -92,6 +92,21 @@ Use this template structure when generating the code review HTML file.
       overflow: hidden;
     }
 
+    .changes-summary {
+      background: #141415;
+      border: 1px solid #424245;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      color: #adadb1;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .changes-summary:empty {
+      display: none;
+    }
+
     /* Annotation comment styling - GitHub-style review comments */
     .review-comment {
       background: #141415;
@@ -191,6 +206,8 @@ Use this template structure when generating the code review HTML file.
       </div>
     </header>
 
+    <section class="changes-summary" id="changes-summary"></section>
+
     <main id="review-content">
       <div class="loading">Loading diff viewer...</div>
     </main>
@@ -207,6 +224,7 @@ Use this template structure when generating the code review HTML file.
       repository: null,      // "user/repo-name" or null if not available
       repositoryUrl: null,   // "https://github.com/user/repo-name" or null
       prUrl: null,           // "https://github.com/user/repo/pull/123" or null
+      summary: "CHANGES_SUMMARY", // brief summary of what the changes do
       files: [
         // Each file object:
         // {
@@ -305,6 +323,12 @@ Use this template structure when generating the code review HTML file.
 
         sourceInfo.innerHTML = headerParts.join(' · ');
 
+        // Display changes summary
+        const summaryEl = document.getElementById('changes-summary');
+        if (reviewData.summary) {
+          summaryEl.textContent = reviewData.summary;
+        }
+
         let totalComments = 0;
 
         // Render each file
@@ -374,6 +398,7 @@ const reviewData = {
   repository: "user/repo",    // optional: extracted from git remote
   repositoryUrl: "https://github.com/user/repo",  // optional: for header link
   prUrl: "https://...",       // optional: from `gh pr view`
+  summary: "Brief description of what the changes do",  // displayed below header
   files: [
     {
       path: "src/file.ts",

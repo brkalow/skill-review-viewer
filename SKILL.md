@@ -48,7 +48,16 @@ gh pr view --json url --jq '.url' 2>/dev/null
 - Build `repositoryUrl` for linking: `https://github.com/{repository}`
 - Include PR link if available from `gh pr view`
 
-### Step 3: Analyze Code and Generate Comments
+### Step 3: Generate Changes Summary
+
+After gathering the diff, write a brief summary (1-3 sentences) describing what the changes do at a high level. This summary should:
+- Explain the purpose or goal of the changes
+- Mention key files or areas affected
+- Be understandable to someone who hasn't seen the code
+
+Example: "Adds JWT token expiration validation to the authentication flow. Updates the validateToken function in auth.ts to check token expiry before allowing access."
+
+### Step 4: Analyze Code and Generate Comments
 
 For each changed file:
 
@@ -69,7 +78,7 @@ For each changed file:
    - `metadata.author`: `"Claude"`
    - `metadata.message`: The review comment text
 
-### Step 4: Generate the HTML File
+### Step 5: Generate the HTML File
 
 Create a self-contained HTML file using the template in [references/html-template.md](references/html-template.md).
 
@@ -79,7 +88,7 @@ Key points:
 - Include annotations array for each file
 - Use dark theme (`pierre-dark`) to match diffs.com aesthetic
 
-### Step 5: Write, Open, and Report
+### Step 6: Write, Open, and Report
 
 1. Write the HTML to a temp directory to avoid impacting git status:
    ```bash
@@ -142,6 +151,7 @@ const reviewData = {
   repository: "user/repo-name",  // optional, extracted from git remote
   repositoryUrl: "https://github.com/user/repo-name",  // optional, for linking
   prUrl: "https://github.com/user/repo/pull/123",  // optional, from gh pr view
+  summary: "Adds JWT token expiration validation to prevent expired tokens from being accepted.",
   files: [
     {
       path: "src/utils/auth.ts",
