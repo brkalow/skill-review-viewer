@@ -1,181 +1,72 @@
 ---
 name: review
-description: Generate a visual code review with inline comments. Use when user invokes "/review", asks to "review my changes", "generate code review", or wants a diff with review comments. Creates a self-contained HTML file using @pierre/diffs.
+description: Generate a visual code review with inline comments. Use when user invokes "/review", asks to "review my changes", "generate code review", or wants a diff with review comments.
 ---
 
 # Code Review Skill
 
-Generate a self-contained HTML file displaying code diffs with inline review comments using the `@pierre/diffs` library.
+Generate an HTML diff viewer with review comments using `@pierre/diffs`.
 
 ## Workflow
 
-### Step 1: Determine Change Source
+1. **Get the diff** - Uncommitted changes by default, or branch diff if clean
+2. **Gather git info** - Run git commands below
+3. **Run 3 parallel reviews** - Launch subagents with different focus areas (see below)
+4. **Aggregate results** - Deduplicate findings, rank by severity
+5. **Generate HTML** - Use template from [references/html-template.md](references/html-template.md)
+6. **Open in browser** - Write to `/tmp/code-review-{timestamp}.html` and open it
 
-Ask the user or infer from context which changes to review:
-
-1. **Branch diff** (default): Changes in current branch vs main/master
-2. **Uncommitted**: All uncommitted changes (staged + unstaged)
-
-### Step 2: Gather Diff Data
-
-Run git commands to get the diff and repository info:
+## Git Commands
 
 ```bash
 # Detect default branch
 DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo 'main')
 
-# For branch diff
-git diff "${DEFAULT_BRANCH}...HEAD"
+# Get diff (uncommitted or branch)
+git diff HEAD                         # uncommitted changes
+git diff "${DEFAULT_BRANCH}...HEAD"  # branch diff
 
-# For uncommitted changes
-git diff HEAD
-
-# List changed files
-git diff --name-only "${DEFAULT_BRANCH}...HEAD"  # or HEAD for uncommitted
-
-# Get repository info (if available)
-git remote get-url origin 2>/dev/null  # e.g., git@github.com:user/repo.git
-
-# Get current branch name
-git branch --show-current
-
-# Check for PR URL (GitHub CLI)
-gh pr view --json url --jq '.url' 2>/dev/null
+# Repository info
+REPO=$(git remote get-url origin 2>/dev/null | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+gh pr view --json url --jq '.url' 2>/dev/null  # PR URL if available
 ```
 
-**Repository info extraction:**
-- Extract `repository` name from remote URL (e.g., `user/repo` from `git@github.com:user/repo.git`)
-- Build `repositoryUrl` for linking: `https://github.com/{repository}`
-- Include PR link if available from `gh pr view`
+## Parallel Review Strategy
 
-### Step 3: Generate Changes Summary
+Launch 3 subagents in parallel, each with a different focus:
 
-After gathering the diff, write a brief summary (1-3 sentences) describing what the changes do at a high level. This summary should:
-- Explain the purpose or goal of the changes
-- Mention key files or areas affected
-- Be understandable to someone who hasn't seen the code
+1. **Defects** - Logic errors, boundary conditions, null/undefined handling, missing validation, error handling gaps, edge cases
+2. **Security** - Injection risks, authentication/authorization issues, exposed secrets, unsafe operations
+3. **Architecture** - Pattern violations, unnecessary complexity, performance issues (N+1 queries, quadratic algorithms on unbounded data)
 
-Example: "Adds JWT token expiration validation to the authentication flow. Updates the validateToken function in auth.ts to check token expiry before allowing access."
+Each subagent reviews the diff and returns findings with file path, line number, severity, and message.
 
-### Step 4: Analyze Code and Generate Comments
+Aggregate by: deduplicating similar findings, ranking by severity (high/medium/low), keeping only issues with realistic impact.
 
-For each changed file:
+## Review Standards
 
-1. Read the full diff output
-2. Analyze the changes looking for:
-   - Potential bugs or logic errors
-   - Security vulnerabilities
-   - Performance concerns
-   - Code style and readability issues
-   - Missing error handling
-   - Type safety issues
-   - Incomplete implementations
-   - Code that could be simplified
+- **Be certain** - Don't speculate about bugs; verify before flagging
+- **Be realistic** - Only raise edge cases with plausible scenarios
+- **Stay focused** - Only review modified code, not pre-existing issues
+- **Skip style** - No nitpicks on formatting or preferences
+- **Be direct** - Factual tone, specific file/line references, actionable suggestions
 
-3. Generate review comments with:
-   - `side`: `"additions"` for new code, `"deletions"` for removed code
-   - `lineNumber`: The line number the comment applies to (from the diff hunk header)
-   - `metadata.author`: `"Claude"`
-   - `metadata.message`: The review comment text
+## Embedding Patches
 
-### Step 5: Generate the HTML File
+Diff content contains backticks and `${...}` that break JavaScript template literals. Use `JSON.stringify()` to safely embed patches:
 
-Create a self-contained HTML file using the template in [references/html-template.md](references/html-template.md).
-
-Key points:
-- Load `@pierre/diffs` from jsdelivr CDN
-- Embed the diff patches as strings in a `reviewData` object
-- Include annotations array for each file
-- Use dark theme (`pierre-dark`) to match diffs.com aesthetic
-
-### Step 6: Write, Open, and Report
-
-1. Write the HTML to a temp directory to avoid impacting git status:
-   ```bash
-   /tmp/code-review-{timestamp}.html
-   # Example: /tmp/code-review-1704700800.html
-   ```
-2. Open the file automatically:
-   ```bash
-   open /tmp/code-review-{timestamp}.html
-   ```
-3. Report the file location and summary (X files, Y comments)
-
-## Review Comment Guidelines
-
-### What to Comment On
-
-- **Bugs**: Logic errors, off-by-one errors, null/undefined issues
-- **Security**: Injection vulnerabilities, exposed secrets, unsafe operations
-- **Performance**: N+1 queries, unnecessary loops, memory leaks
-- **Clarity**: Confusing names, complex expressions, missing context
-- **Robustness**: Missing error handling, edge cases, validation
-
-### Comment Format
-
-Keep comments:
-- Concise but actionable
-- Focused on one issue per comment
-- Constructive with suggestions when possible
-
-Example:
-```
-"Consider using optional chaining here to handle the case where user is undefined"
+```javascript
+files: [
+  { path: "src/file.ts", patch: ${JSON.stringify(diffString)}, annotations: [] }
+]
 ```
 
 ## Line Number Mapping
 
-Git diff hunk headers show line ranges:
-```
-@@ -10,6 +12,8 @@
-```
-- `-10,6` = old file starting at line 10, 6 lines of context
-- `+12,8` = new file starting at line 12, 8 lines
+Diff hunk headers: `@@ -10,6 +12,8 @@`
+- `-10,6` = old file line 10, 6 lines
+- `+12,8` = new file line 12, 8 lines
 
 For annotations:
-- Lines starting with `+` are additions - use `side: "additions"` with the new file line number
-- Lines starting with `-` are deletions - use `side: "deletions"` with the old file line number
-- Context lines (no prefix) exist in both
-
-Count lines within each hunk to determine the exact line number.
-
-## Example Output Structure
-
-The `reviewData` object embedded in HTML:
-
-```javascript
-const reviewData = {
-  generatedAt: "2024-01-08T12:00:00Z",
-  source: "branch", // or "uncommitted" or "commit"
-  baseBranch: "main",
-  repository: "user/repo-name",  // optional, extracted from git remote
-  repositoryUrl: "https://github.com/user/repo-name",  // optional, for linking
-  prUrl: "https://github.com/user/repo/pull/123",  // optional, from gh pr view
-  summary: "Adds JWT token expiration validation to prevent expired tokens from being accepted.",
-  files: [
-    {
-      path: "src/utils/auth.ts",
-      patch: `--- a/src/utils/auth.ts
-+++ b/src/utils/auth.ts
-@@ -15,6 +15,10 @@ export function validateToken(token) {
-   if (!token) return false;
-+  const decoded = jwt.decode(token);
-+  if (decoded.exp < Date.now()) {
-+    return false;
-+  }
-   return true;
- }`,
-      annotations: [
-        {
-          side: "additions",
-          lineNumber: 17,
-          metadata: {
-            author: "Claude",
-            message: "Date.now() returns milliseconds, but JWT exp is typically in seconds. Consider: decoded.exp * 1000 < Date.now()"
-          }
-        }
-      ]
-    }
-  ]
-};
-```
+- `+` lines: use `side: "additions"` with new file line number
+- `-` lines: use `side: "deletions"` with old file line number

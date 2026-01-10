@@ -1,8 +1,8 @@
-# HTML Template Reference
+# HTML Template
 
-Use this template structure when generating the code review HTML file.
+Copy this template and replace the `reviewData` object with actual data.
 
-## Full Template
+## Template
 
 ```html
 <!DOCTYPE html>
@@ -384,81 +384,29 @@ Use this template structure when generating the code review HTML file.
 </html>
 ```
 
-## Key Customization Points
-
-### 1. Review Data Object
-
-Replace the `reviewData` object with actual data:
+## Review Data Structure
 
 ```javascript
 const reviewData = {
-  generatedAt: new Date().toISOString(),
-  source: "branch",           // "branch", "uncommitted", or "commit"
-  baseBranch: "main",         // the base branch name or commit SHA
-  repository: "user/repo",    // optional: extracted from git remote
-  repositoryUrl: "https://github.com/user/repo",  // optional: for header link
-  prUrl: "https://...",       // optional: from `gh pr view`
-  summary: "Brief description of what the changes do",  // displayed below header
+  generatedAt: "2024-01-08T12:00:00Z",
+  source: "branch",                    // "branch" or "uncommitted"
+  baseBranch: "main",
+  repository: "user/repo",             // optional
+  repositoryUrl: "https://github.com/user/repo",  // optional
+  prUrl: "https://github.com/.../pull/123",       // optional
+  summary: "Brief description of what the changes do",  // optional, displayed below header
   files: [
     {
       path: "src/file.ts",
-      patch: "...",           // full git diff patch for this file
-      annotations: [...]       // array of review comments
+      patch: "--- a/...\n+++ b/...",   // git diff output
+      annotations: [
+        {
+          side: "additions",            // or "deletions"
+          lineNumber: 15,
+          metadata: { author: "Claude", message: "Review comment" }
+        }
+      ]
     }
   ]
 };
 ```
-
-To get repository and PR info:
-```bash
-# Extract repo from remote URL
-REPO=$(git remote get-url origin 2>/dev/null | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
-
-# Build repository URL
-REPO_URL="https://github.com/${REPO}"
-
-# Get PR URL (requires GitHub CLI)
-gh pr view --json url --jq '.url' 2>/dev/null
-```
-
-### 2. Annotations Array
-
-Each annotation needs:
-- `side`: `"additions"` or `"deletions"`
-- `lineNumber`: Line number in the file (1-indexed)
-- `metadata.author`: `"Claude"` (or custom)
-- `metadata.message`: The review comment text
-
-### 3. Theme Options
-
-Available themes for `themeType`:
-- `'dark'` - Dark mode (matches diffs.com)
-- `'light'` - Light mode
-- `'system'` - Follow system preference
-
-### 4. Diff Style Options
-
-- `diffStyle: 'split'` - Side-by-side view (default)
-- `diffStyle: 'unified'` - Stacked/unified view
-
-## Color Palette (pierre-dark theme)
-
-| Element | Color |
-|---------|-------|
-| Background | `#070707` |
-| Text | `#fbfbfb` |
-| Secondary text | `#84848A` |
-| Muted text | `#adadb1` |
-| Borders | `#424245` |
-| Card background | `#141415` |
-| Accent blue | `#009fff` |
-| Accent purple | `#9d6afb` |
-| Error red | `#ff2e3f` |
-| Addition green | `#00cab1` |
-
-## Notes
-
-- The template uses ES modules with import map for shiki and @pierre/diffs via esm.sh
-- No build step required - just save and open in browser
-- Styling matches diffs.com dark theme aesthetic
-- Review comments have avatar with gradient, author name, and timestamp
